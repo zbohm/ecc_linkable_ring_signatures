@@ -3,10 +3,12 @@
 # Provide an implementation of Linkable Spontaneus Anonymous Group Signature
 # over elliptic curve cryptography.
 #
-# Implementation of cryptographic scheme from: https://eprint.iacr.org/2004/027.pdf
-#
+# Implementation of cryptographic scheme from PDF [Linkable Spontaneous Anonymous Group Signature for Ad Hoc Groups](https://eprint.iacr.org/2004/027.pdf)
+# from Joseph K. Liu, Victor K. Wei and Duncan S. Wong.
 #
 # Written in 2017 by Fernanddo Lobato Meeser and placed in the public domain.
+#
+# Note: To show as a literar code documentation compile this code by [pycoo](https://pypi.org/project/Pycco/).
 
 import os
 import hashlib
@@ -18,45 +20,45 @@ from ecdsa.ecdsa import curve_secp256k1
 from ecdsa.curves import SECP256k1
 from ecdsa import numbertheory
 
+
 def ring_signature(siging_key, key_idx, M, y, G=SECP256k1.generator, hash_func=hashlib.sha3_256):
     """
-        Generates a ring signature for a message given a specific set of
-        public keys and a signing key belonging to one of the public keys
-        in the set.
+    # Make a ring signature
 
-        PARAMS
-        ------
+    Generates a ring signature for a message given a specific set of
+    public keys and a signing key belonging to one of the public keys
+    in the set.
 
-            signing_key: (int) The with which the message is to be anonymously signed.
+    ### Params:
 
-            key_idx: (int) The index of the public key corresponding to the signature
-                private key over the list of public keys that compromise the signature.
+    signing_key: (int) The with which the message is to be anonymously signed.
 
-            M: (str) Message to be signed.
+    key_idx: (int) The index of the public key corresponding to the signature
+        private key over the list of public keys that compromise the signature.
 
-            y: (list) The list of public keys which over which the anonymous signature
-                will be compose.
+    M: (str) Message to be signed.
 
-            G: (ecdsa.ellipticcurve.Point) Base point for the elliptic curve.
+    y: (list) The list of public keys which over which the anonymous signature
+        will be compose.
 
-            hash_func: (function) Cryptographic hash function that recieves an input
-                and outputs a digest.
+    G: (ecdsa.ellipticcurve.Point) Base point for the elliptic curve.
 
-        RETURNS
-        -------
+    hash_func: (function) Cryptographic hash function that recieves an input
+        and outputs a digest.
 
-            Signature (c_0, s, Y) :
-                c_0: Initial value to reconstruct signature.
-                s = vector of randomly generated values with encrypted secret to
-                    reconstruct signature.
-                Y = Link for current signer.
+    ### Returns:
 
+    Signature (c_0, s, Y):
+
+    c_0: Initial value to reconstruct signature.
+    s = vector of randomly generated values with encrypted secret to
+        reconstruct signature.
+    Y = Link for current signer.
     """
-    # Note: compiple this code by [pycoo](https://pypi.org/project/Pycco/).
 
     # # 4 A LSAG Signature Scheme
 
-    # Let *G = hgi* be a group of prime order *q* such that the underlying discrete
+    # Let *G* = ⧼g⧽ be a group of prime order *q* such that the underlying discrete
     # logarithm problem is intractable. Let *H<sub>1</sub>* : {0, 1}∗ → *Z<sub>q</sub>* and *H<sub>2</sub>* : {0, 1}∗ → *G*
     # be some statistically independent cryptographic hash functions. For *i = 1, · · ·, n,*
     # each user *i* has a distinct public key *y<sub>i</sub>* and a private key *x<sub>i</sub>* such that *y<sub>i</sub> = g<sup>x<sub>i</sub></sup>*.
@@ -73,20 +75,21 @@ def ring_signature(siging_key, key_idx, M, y, G=SECP256k1.generator, hash_func=h
     s = [0] * n
 
     # ### Step 1
-    # Compute h = H<sub>2</sub> (L) and ỹ = h<sup>x<sub>π</sub></sup>.
+    # Compute *h = H<sub>2</sub>(L)* and *ỹ = h<sup>x<sub>π</sub></sup>*.
 
     H = H2([y, M], hash_func=hash_func)
     Y = H * siging_key
 
     # ### Step 2
-    # Pick u ∈<sub>R</sub> Z<sub>q</sub>, and compute
-    # c<sub>π+1</sub> = H<sub>1</sub>(L, ỹ, m, g<sup>u</sup>, h<sup>u</sup>).
+    # Pick *u ∈<sub>R</sub> Z<sub>q</sub>*, and compute
+    #
+    # *c<sub>π+1</sub> = H<sub>1</sub>(L, ỹ, m, g<sup>u</sup>, h<sup>u</sup>)*.
 
     u = randrange(SECP256k1.order)
     c[(key_idx + 1) % n] = H1([y, Y, M, G * u, H * u], hash_func=hash_func)
 
     # ### Step 3
-    # For *i* = π+1, · · · , *n*, 1, · · · , π−1, pick s<sub>i</sub> ∈<sub>R</sub> Z<sub>q</sub> and compute
+    # For *i* = π+1, · · · , *n*, 1, · · · , π−1, pick *s<sub>i</sub> ∈<sub>R</sub> Z<sub>q</sub>* and compute
     #
     # *c<sub>i+1</sub> = H<sub>1</sub>(L, ỹ, m, g<sup>s<sub>i</sub></sup> y<sub>i</sub><sup>c<sub>i</sub></sup>, h<sup>s<sub>i</sub></sup> ỹ<sup>c<sub>i</sub></sup>)*.
 
@@ -104,38 +107,39 @@ def ring_signature(siging_key, key_idx, M, y, G=SECP256k1.generator, hash_func=h
 
     s[key_idx] = (u - siging_key * c[key_idx]) % SECP256k1.order
 
-    # The signature is σ<sub>L</sub>(m) = (c<sub>1</sub>, s<sub>1</sub> , · · ·, s<sub>n</sub>, ỹ).
+    # The signature is *σ<sub>L</sub>(m) = (c<sub>1</sub>, s<sub>1</sub> , · · ·, s<sub>n</sub>, ỹ)*.
 
     return (c[0], s, Y)
 
 
 def verify_ring_signature(message, y, c_0, s, Y, G=SECP256k1.generator, hash_func=hashlib.sha3_256):
     """
-        Verifies if a valid signature was made by a key inside a set of keys.
+    # Verify the ring signature
 
+    Verifies if a valid signature was made by a key inside a set of keys.
 
-        PARAMS
-        ------
-            message: (str) message whos' signature is being verified.
+    ### Params:
 
-            y: (list) set of public keys with which the message was signed.
+    message: (str) message whos' signature is being verified.
 
-            Signature:
-                c_0: (int) initial value to reconstruct the ring.
+    y: (list) set of public keys with which the message was signed.
 
-                s: (list) vector of secrets used to create ring.
+    #### Signature:
 
-                Y = (int) Link of unique signer.
+    c_0: (int) initial value to reconstruct the ring.
 
-            G: (ecdsa.ellipticcurve.Point) Base point for the elliptic curve.
+    s: (list) vector of secrets used to create ring.
 
-            hash_func: (function) Cryptographic hash function that recieves an input
-                and outputs a digest.
+    Y = (int) Link of unique signer.
 
-        RETURNS
-        -------
-            Boolean value indicating if signature is valid.
+    G: (ecdsa.ellipticcurve.Point) Base point for the elliptic curve.
 
+    hash_func: (function) Cryptographic hash function that recieves an input
+        and outputs a digest.
+
+    ### Returns:
+
+    Boolean value indicating if signature is valid.
     """
     n = len(y)
     c = [c_0] + [0] * (n - 1)
@@ -156,20 +160,19 @@ def verify_ring_signature(message, y, c_0, s, Y, G=SECP256k1.generator, hash_fun
 
 def map_to_curve(x, P=curve_secp256k1.p()):
     """
-        Maps an integer to an elliptic curve.
+    Maps an integer to an elliptic curve.
 
-        Using the try and increment algorithm, not quite
-        as efficient as I would like, but c'est la vie.
+    Using the try and increment algorithm, not quite
+    as efficient as I would like, but c'est la vie.
 
-        PARAMS
-        ------
-            x: (int) number to be mapped into E.
+    ### Params:
 
-            P: (ecdsa.curves.curve_secp256k1.p) Modulo for elliptic curve.
+    x: (int) number to be mapped into E.
 
-        RETURNS
-        -------
-            (ecdsa.ellipticcurve.Point) Point in Curve
+    P: (ecdsa.curves.curve_secp256k1.p) Modulo for elliptic curve.
+
+    ### Returns:
+    (ecdsa.ellipticcurve.Point) Point in Curve
     """
     x -= 1
     y = 0
@@ -190,57 +193,54 @@ def map_to_curve(x, P=curve_secp256k1.p()):
 
 def H1(msg, hash_func=hashlib.sha3_256):
     """
-        Return an integer representation of the hash of a message. The
-        message can be a list of messages that are concatenated with the
-        concat() function.
+    Return an integer representation of the hash of a message. The
+    message can be a list of messages that are concatenated with the
+    concat() function.
 
-        PARAMS
-        ------
-            msg: (str or list) message(s) to be hashed.
+    ### Params:
 
-            hash_func: (function) a hash function which can recieve an input
-                string and return a hexadecimal digest.
+    msg: (str or list) message(s) to be hashed.
 
-        RETURNS
-        -------
-            Integer representation of hexadecimal digest from hash function.
+    hash_func: (function) a hash function which can recieve an input
+        string and return a hexadecimal digest.
+
+    ### Returns:
+    Integer representation of hexadecimal digest from hash function.
     """
     return int('0x'+ hash_func(concat(msg)).hexdigest(), 16)
 
 
 def H2(msg, hash_func=hashlib.sha3_256):
     """
-        Hashes a message into an elliptic curve point.
+    Hashes a message into an elliptic curve point.
 
-        PARAMS
-        ------
-            msg: (str or list) message(s) to be hashed.
+    ### Params:
 
-            hash_func: (function) Cryptographic hash function that recieves an input
-                and outputs a digest.
-        RETURNS
-        -------
-            ecdsa.ellipticcurve.Point to curve.
+    msg: (str or list) message(s) to be hashed.
+
+    hash_func: (function) Cryptographic hash function that recieves an input
+        and outputs a digest.
+
+    ### Returns:
+    ecdsa.ellipticcurve.Point to curve.
     """
     return map_to_curve(H1(msg, hash_func=hash_func))
 
 
 def concat(params):
     """
-        Concatenates a list of parameters into a bytes. If one
-        of the parameters is a list, calls itself recursively.
+    Concatenates a list of parameters into a bytes. If one
+    of the parameters is a list, calls itself recursively.
 
-        PARAMS
-        ------
-            params: (list) list of elements, must be of type:
-                - int
-                - list
-                - str
-                - ecdsa.ellipticcurve.Point
+    ### Params:
+    params: (list) list of elements, must be of type:
+        - int
+        - list
+        - str
+        - ecdsa.ellipticcurve.Point
 
-        RETURNS
-        -------
-            concatenated bytes of all values.
+    ### Returns:
+    concatenated bytes of all values.
     """
     n = len(params)
     bytes_value = [0] * n
@@ -264,41 +264,37 @@ def concat(params):
 
 def stringify_point(p):
     """
-        Represents an elliptic curve point as a string coordinate.
+    Represents an elliptic curve point as a string coordinate.
 
-        PARAMS
-        ------
-            p: ecdsa.ellipticcurve.Point - Point to represent as string.
+    ### Params:
+    p: ecdsa.ellipticcurve.Point - Point to represent as string.
 
-        RETURNS
-        -------
-            (str) Representation of a point (x, y)
+    ### Returns:
+    (str) Representation of a point (x, y)
     """
     return '{},{}'.format(p.x(), p.y())
 
 
 def stringify_point_js(p):
     """
-        Represents an elliptic curve point as a string coordinate, the
-        string format is javascript so other javascript scripts can
-        consume this.
+    Represents an elliptic curve point as a string coordinate, the
+    string format is javascript so other javascript scripts can
+    consume this.
 
-        PARAMS
-        ------
-            p: ecdsa.ellipticcurve.Point - Point to represent as string.
+    ### Params:
+    p: ecdsa.ellipticcurve.Point - Point to represent as string.
 
-        RETURNS
-        -------
-            (str) Javascript string representation of a point (x, y)
+    ### Returns:
+    (str) Javascript string representation of a point (x, y)
     """
     return 'new BigNumber("{}"), new BigNumber("{}")'.format(p.x(), p.y())
 
 
 def export_signature(y, message, signature, foler_name='./data', file_name='signature.txt'):
-    """ Exports a signature to a specific folder and filename provided.
+    """Exports a signature to a specific folder and filename provided.
 
-        The file contains the signature, the ring used to generate signature
-        and the message being signed.
+    The file contains the signature, the ring used to generate signature
+    and the message being signed.
     """
     if not os.path.exists(foler_name):
         os.makedirs(foler_name)
@@ -322,9 +318,9 @@ def export_signature(y, message, signature, foler_name='./data', file_name='sign
 
 
 def export_private_keys(s_keys, foler_name='./data', file_name='secrets.txt'):
-    """ Exports a set  of private keys to a file.
+    """Exports a set  of private keys to a file.
 
-        Each line in the file is one key.
+    Each line in the file is one key.
     """
     if not os.path.exists(foler_name):
         os.makedirs(foler_name)
@@ -338,8 +334,7 @@ def export_private_keys(s_keys, foler_name='./data', file_name='secrets.txt'):
 
 
 def export_signature_javascript(y, message, signature, foler_name='./data', file_name='signature.js'):
-    """ Exports a signatrue in javascript format to a file and folder.
-    """
+    """Exports a signatrue in javascript format to a file and folder."""
     if not os.path.exists(foler_name):
         os.makedirs(foler_name)
 
