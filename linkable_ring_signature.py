@@ -52,19 +52,44 @@ def ring_signature(siging_key, key_idx, M, y, G=SECP256k1.generator, hash_func=h
                 Y = Link for current signer.
 
     """
+    # Note: compiple this code by [pycoo](https://pypi.org/project/Pycco/).
+
+    # # 4 A LSAG Signature Scheme
+
+    # Let *G = hgi* be a group of prime order *q* such that the underlying discrete
+    # logarithm problem is intractable. Let *H<sub>1</sub>* : {0, 1}∗ → *Z<sub>q</sub>* and *H<sub>2</sub>* : {0, 1}∗ → *G*
+    # be some statistically independent cryptographic hash functions. For *i = 1, · · ·, n,*
+    # each user *i* has a distinct public key *y<sub>i</sub>* and a private key *x<sub>i</sub>* such that *y<sub>i</sub> = g<sup>x<sub>i</sub></sup>*.
+    # Let *L = {y<sub>1</sub>, · · ·, y<sub>n</sub>}* be the list of *n* public keys.
+
+    # ## 4.1 Signature Generation
+
+    # Given message *m* ∈ {0, 1}∗, list of public key *L = {y<sub>1</sub>, · · · , y<sub>n</sub>}*, private key
+    # x<sub>π</sub> corresponding to *y<sub>π</sub> 1 ≤ π ≤ n*, the following algorithm generates a LSAG
+    # signature.
+
     n = len(y)
     c = [0] * n
     s = [0] * n
 
-    # STEP 1
-    H = H2([y, M], hash_func=hash_func)
-    Y =  H * siging_key
+    # ### Step 1
+    # Compute h = H<sub>2</sub> (L) and ỹ = h<sup>x<sub>π</sub></sup>.
 
-    # STEP 2
+    H = H2([y, M], hash_func=hash_func)
+    Y = H * siging_key
+
+    # ### Step 2
+    # Pick u ∈<sub>R</sub> Z<sub>q</sub>, and compute
+    # c<sub>π+1</sub> = H<sub>1</sub>(L, ỹ, m, g<sup>u</sup>, h<sup>u</sup>).
+
     u = randrange(SECP256k1.order)
     c[(key_idx + 1) % n] = H1([y, Y, M, G * u, H * u], hash_func=hash_func)
 
-    # STEP 3
+    # ### Step 3
+    # For *i* = π+1, · · · , *n*, 1, · · · , π−1, pick s<sub>i</sub> ∈<sub>R</sub> Z<sub>q</sub> and compute
+    #
+    # *c<sub>i+1</sub> = H<sub>1</sub>(L, ỹ, m, g<sup>s<sub>i</sub></sup> y<sub>i</sub><sup>c<sub>i</sub></sup>, h<sup>s<sub>i</sub></sup> ỹ<sup>c<sub>i</sub></sup>)*.
+
     for i in [ i for i in range(key_idx + 1, n) ] + [i for i in range(key_idx)]:
 
         s[i] = randrange(SECP256k1.order)
@@ -74,8 +99,13 @@ def ring_signature(siging_key, key_idx, M, y, G=SECP256k1.generator, hash_func=h
 
         c[(i + 1) % n] = H1([y, Y, M, z_1, z_2], hash_func=hash_func)
 
-    # STEP 4
+    # ### Step 4
+    # Compute *s<sub>π</sub>* = *u − x<sub>π</sub>c<sub>π</sub>* mod *q*.
+
     s[key_idx] = (u - siging_key * c[key_idx]) % SECP256k1.order
+
+    # The signature is σ<sub>L</sub>(m) = (c<sub>1</sub>, s<sub>1</sub> , · · ·, s<sub>n</sub>, ỹ).
+
     return (c[0], s, Y)
 
 
